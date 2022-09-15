@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, jsonify
 import io
 import torch
 from torch import autocast
@@ -17,11 +17,9 @@ pipe = StableDiffusionPipeline.from_pretrained(
 
 def run_inference(prompt):
     with autocast("cuda"):
-        image = pipe(prompt)["sample"][0]
-    img_data = io.BytesIO()
-    image.save(img_data, "PNG")
-    img_data.seek(0)
-    return img_data
+        image = pipe(prompt).images[0]
+    image.save("test.png")
+    return image
 
 
 @app.route("/")
@@ -39,6 +37,33 @@ def prompt():
     prompt = request.args["prompt"]
     img_data = run_inference(prompt)
     return send_file(img_data, mimetype='image/png')
+
+
+@app.route("/generate", methods=["POST"])
+def generate():
+    input_request = request.get_json()
+    prompt = input_request["prompt"]
+    if request.method == "POST":
+        if prompt == "":
+            json = {
+                "data": [],
+                "message": "Prompt cannot be empty",
+                "status_code": 400
+            }
+            return jsonify(json)
+        else:
+            result_image = run_inference(prompt=prompt)
+            json = {
+                "message": "Success generated image based on the prompt",
+                "status_code": 200
+            }
+    else:
+        json = {
+            "data": "",
+            "message": "Method not allowed",
+            "status_code": 405
+        }
+        return jsonify(json)
 
 
 @app.errorhandler(400)
