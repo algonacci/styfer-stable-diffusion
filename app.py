@@ -1,9 +1,6 @@
 import os
-from flask import Flask, request, send_file, jsonify
-import io
+from flask import Flask, request, jsonify
 import torch
-from torch import autocast
-from diffusers import StableDiffusionPipeline
 import time
 import module as md
 
@@ -12,19 +9,6 @@ app = Flask(__name__)
 assert torch.cuda.is_available()
 
 time_stamp = time.strftime("%Y%m%d-%H%M%S")
-
-pipe = StableDiffusionPipeline.from_pretrained(
-    "CompVis/stable-diffusion-v1-4",
-    use_auth_token=True
-).to("cuda")
-
-
-def run_inference(prompt):
-    with autocast("cuda"):
-        image = pipe(prompt).images[0]
-    image_path = "static/" + time_stamp+"_"+prompt.replace(" ", "_")+".png"
-    image.save(image_path)
-    return image_path
 
 
 @app.route("/")
@@ -48,13 +32,14 @@ def generate():
             }
             return jsonify(json)
         else:
-            result_image = run_inference(prompt=prompt)
+            result_image = md.run_inference(prompt=prompt)
             processed = md.upload_result_image(filename=result_image)
             json = {
                 "message": "Success generated image based on the prompt",
                 "status_code": 200,
                 "image_url": processed
             }
+            return jsonify(json)
     else:
         json = {
             "data": "",
